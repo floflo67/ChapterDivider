@@ -15,8 +15,14 @@ namespace ChapterDivider
     {
         private const string _FilePath = @"D:\Downloads\temp\Tempest of the Stellar War.txt";
         private const string _SavePath = @"D:\Downloads\temp\";
-        private static List<Chapter> _Chapters;
 
+        private static readonly DivideParameters parameters = new DivideParameters()
+        {
+            ShouldAddDarkBackground = true,
+            ShouldCreateMultiplePdf = true,
+        };
+
+        private static List<Chapter> _Chapters;
         private static List<Chapter> Chapters { get { return _Chapters ?? (_Chapters = new List<Chapter>()); } }
 
         public static void Main(string[] args)
@@ -44,9 +50,84 @@ namespace ChapterDivider
 
             Console.WriteLine("Chapter count : " + Chapters.Count);
 
+            if (parameters.ShouldCreateMultiplePdf.HasValue && parameters.ShouldCreateMultiplePdf.Value == true)
+            {
+                var filenames = RenderMultiplePdf();
+
+                if (parameters.ShouldAddDarkBackground.HasValue && parameters.ShouldAddDarkBackground.Value == true)
+                {
+                    foreach (var s in filenames) { AddDarkBackgroundColor(s); }
+                }
+            }
+            else
+            {
+                string filename = RenderOnePdf();
+
+                if (parameters.ShouldAddDarkBackground.HasValue && parameters.ShouldAddDarkBackground.Value == true)
+                {
+                    AddDarkBackgroundColor(filename);
+                }
+            }
+        }
+
+        private static void AddDarkBackgroundColor(string filename)
+        {
+            PdfDocument doc = PdfReader.Open(_SavePath + filename);
+            doc.Options.ColorMode = PdfColorMode.Cmyk;
+            foreach (var page in doc.Pages)
+            {
+                XGraphics gfx = XGraphics.FromPdfPage(page, XGraphicsPdfPageOptions.Append);
+                gfx.DrawRectangle(new XSolidBrush(XColor.FromCmyk(0.4, 0.25, 0.10, 0, 1)), new XRect(0, 0, 1000, 1000));
+            }
+
+            doc.Save(_SavePath + filename);
+        }
+
+        private static IEnumerable<string> RenderMultiplePdf()
+        {
             int chapDone = 1;
             int maxChap = Chapters.Count;
+            PdfDocumentRenderer pdfRenderer = new PdfDocumentRenderer(false);
+            List<string> fileNames = new List<string>();
 
+            foreach (var c in Chapters.Where(x => x.Number < 100))
+            {
+                Document document = new Document();
+                var style = document.Styles["Normal"];
+                style.Font.Size = 14;
+                Section section = document.AddSection();
+                Paragraph paragraph = section.AddParagraph();
+                paragraph.Format.Alignment = ParagraphAlignment.Center;
+                FormattedText ft = paragraph.AddFormattedText(c.CompleteTitle, TextFormat.Bold);
+                ft.Font.Size = 18;
+                paragraph.AddLineBreak();
+
+                foreach (var l in c.Lines)
+                {
+                    section.AddParagraph(l);
+                }
+
+                pdfRenderer.Document = document;
+                pdfRenderer.RenderDocument();
+
+                string filename = $"{c.Title} {c.Number}.pdf";
+                pdfRenderer.PdfDocument.Save(_SavePath + filename);
+                fileNames.Add(filename);
+                if (chapDone % 10 == 0)
+                {
+                    Console.WriteLine("Processed " + chapDone + "/" + maxChap);
+                }
+
+                chapDone++;
+            }
+
+            return fileNames;
+        }
+
+        private static string RenderOnePdf()
+        {
+            int chapDone = 1;
+            int maxChap = Chapters.Count;
             PdfDocumentRenderer pdfRenderer = new PdfDocumentRenderer(false);
             Document document = new Document();
             var style = document.Styles["Normal"];
@@ -76,18 +157,9 @@ namespace ChapterDivider
 
             pdfRenderer.Document = document;
             pdfRenderer.RenderDocument();
-            string filename = "Tempest of the Stellar War_1.pdf";
+            string filename = $"{Chapters.First().Title}.pdf";
             pdfRenderer.PdfDocument.Save(_SavePath + filename);
-
-            PdfDocument doc = PdfReader.Open(_SavePath + filename);
-            doc.Options.ColorMode = PdfColorMode.Cmyk;
-            foreach (var page in doc.Pages)
-            {
-                XGraphics gfx = XGraphics.FromPdfPage(page, XGraphicsPdfPageOptions.Append);
-                gfx.DrawRectangle(new XSolidBrush(XColor.FromCmyk(0.4, 0.25, 0.10, 0, 1)), new XRect(0, 0, 1000, 1000));
-            }
-
-            doc.Save(_SavePath + filename);
+            return filename;
         }
     }
 }
