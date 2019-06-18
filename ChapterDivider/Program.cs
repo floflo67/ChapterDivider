@@ -14,6 +14,7 @@ namespace ChapterDivider
     internal class Program
     {
         private const string _FilePath = @"D:\Downloads\temp\Tempest of the Stellar War.txt";
+        private const string _NovelName = "Tempest of the Stellar War";
         private const string _SavePath = @"D:\Downloads\temp\";
 
         private static readonly DivideParameters parameters = new DivideParameters()
@@ -87,11 +88,11 @@ namespace ChapterDivider
         {
             int chapDone = 1;
             int maxChap = Chapters.Count;
-            PdfDocumentRenderer pdfRenderer = new PdfDocumentRenderer(false);
             List<string> fileNames = new List<string>();
 
             foreach (var c in Chapters.Where(x => x.Number < 100))
             {
+                PdfDocumentRenderer pdfRenderer = new PdfDocumentRenderer(false);
                 Document document = new Document();
                 var style = document.Styles["Normal"];
                 style.Font.Size = 14;
@@ -110,14 +111,15 @@ namespace ChapterDivider
                 pdfRenderer.Document = document;
                 pdfRenderer.RenderDocument();
 
-                string filename = $"{c.Title} {c.Number}.pdf";
+                string filename = $"{_NovelName} {c.Number}.pdf";
                 pdfRenderer.PdfDocument.Save(_SavePath + filename);
                 fileNames.Add(filename);
                 if (chapDone % 10 == 0)
                 {
                     Console.WriteLine("Processed " + chapDone + "/" + maxChap);
                 }
-
+                document = null;
+                pdfRenderer = null;
                 chapDone++;
             }
 
@@ -157,7 +159,7 @@ namespace ChapterDivider
 
             pdfRenderer.Document = document;
             pdfRenderer.RenderDocument();
-            string filename = $"{Chapters.First().Title}.pdf";
+            string filename = $"{_NovelName}.pdf";
             pdfRenderer.PdfDocument.Save(_SavePath + filename);
             return filename;
         }
