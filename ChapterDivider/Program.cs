@@ -1,4 +1,5 @@
-﻿using MigraDoc.DocumentObjectModel;
+﻿using HtmlAgilityPack;
+using MigraDoc.DocumentObjectModel;
 using MigraDoc.Rendering;
 using PdfSharp.Drawing;
 using PdfSharp.Pdf;
@@ -7,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 
 namespace ChapterDivider
@@ -27,6 +29,45 @@ namespace ChapterDivider
         private static List<Chapter> Chapters { get { return _Chapters ?? (_Chapters = new List<Chapter>()); } }
 
         public static void Main(string[] args)
+        {
+            //CreatePdfFromExistingTxtFile();è
+
+            using (WebClient client = new WebClient())
+            {
+                long currentChapterId = 23413393423649569;
+                // 23413400386206370
+                // == -1 if end of chapters
+                //string htmlCode = client.DownloadString("https://www.webnovel.com/book/7922313105002205/" + currentChapterId);
+
+                HtmlWeb web = new HtmlWeb();
+                var htmlDoc = web.Load("https://www.webnovel.com/book/7922313105002205/" + currentChapterId);
+                var htmlCode = htmlDoc.ParsedText;
+
+                string description = htmlDoc.DocumentNode.SelectSingleNode(".//*[contains(@class,'chapter_content')]").InnerText;
+                description = description.StripHTML();
+
+                var startSearchId = htmlCode.IndexOf("g_data.nextcId");
+                var endSearchId = htmlCode.IndexOf(';', startSearchId);
+
+                var s = htmlCode.Substring(startSearchId, endSearchId - startSearchId);
+                long nextChapterId = long.Parse(s.Split('\'')[1]);
+            }
+        }
+
+        private static void AddDarkBackgroundColor(string filename)
+        {
+            PdfDocument doc = PdfReader.Open(_SavePath + filename);
+            doc.Options.ColorMode = PdfColorMode.Cmyk;
+            foreach (var page in doc.Pages)
+            {
+                XGraphics gfx = XGraphics.FromPdfPage(page, XGraphicsPdfPageOptions.Append);
+                gfx.DrawRectangle(new XSolidBrush(XColor.FromCmyk(0.4, 0.25, 0.10, 0, 1)), new XRect(0, 0, 1000, 1000));
+            }
+
+            doc.Save(_SavePath + filename);
+        }
+
+        private static void CreatePdfFromExistingTxtFile()
         {
             var fileStream = new FileStream(_FilePath, FileMode.Open, FileAccess.Read);
             using (var streamReader = new StreamReader(fileStream, Encoding.UTF8))
@@ -69,19 +110,6 @@ namespace ChapterDivider
                     AddDarkBackgroundColor(filename);
                 }
             }
-        }
-
-        private static void AddDarkBackgroundColor(string filename)
-        {
-            PdfDocument doc = PdfReader.Open(_SavePath + filename);
-            doc.Options.ColorMode = PdfColorMode.Cmyk;
-            foreach (var page in doc.Pages)
-            {
-                XGraphics gfx = XGraphics.FromPdfPage(page, XGraphicsPdfPageOptions.Append);
-                gfx.DrawRectangle(new XSolidBrush(XColor.FromCmyk(0.4, 0.25, 0.10, 0, 1)), new XRect(0, 0, 1000, 1000));
-            }
-
-            doc.Save(_SavePath + filename);
         }
 
         private static IEnumerable<string> RenderMultiplePdf()
