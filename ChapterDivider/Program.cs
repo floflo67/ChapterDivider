@@ -8,8 +8,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Text;
+using System.Web;
 
 namespace ChapterDivider
 {
@@ -23,6 +23,7 @@ namespace ChapterDivider
         {
             ShouldAddDarkBackground = true,
             ShouldCreateMultiplePdf = true,
+            ShouldGetSingleChapter = true,
         };
 
         private static List<Chapter> _Chapters;
@@ -30,28 +31,28 @@ namespace ChapterDivider
 
         public static void Main(string[] args)
         {
-            //CreatePdfFromExistingTxtFile();è
+            //GetChaptersFromExistingFile();
+            GetChaptersFromUrl();
+            CreatePdfUsingChapters();
+        }
 
-            using (WebClient client = new WebClient())
-            {
-                long currentChapterId = 23413393423649569;
-                // 23413400386206370
-                // == -1 if end of chapters
-                //string htmlCode = client.DownloadString("https://www.webnovel.com/book/7922313105002205/" + currentChapterId);
+        private static void AddChapterFromUrl(long currentChapterId, out long nextChapterId)
+        {
+            HtmlWeb web = new HtmlWeb();
+            var htmlDoc = web.Load("https://www.webnovel.com/book/7922313105002205/" + currentChapterId);
+            var htmlCode = htmlDoc.ParsedText;
 
-                HtmlWeb web = new HtmlWeb();
-                var htmlDoc = web.Load("https://www.webnovel.com/book/7922313105002205/" + currentChapterId);
-                var htmlCode = htmlDoc.ParsedText;
+            string description = htmlDoc.DocumentNode.SelectSingleNode(".//*[contains(@class,'chapter_content')]").InnerText;
+            description = HttpUtility.HtmlDecode(description.StripHTML());
 
-                string description = htmlDoc.DocumentNode.SelectSingleNode(".//*[contains(@class,'chapter_content')]").InnerText;
-                description = description.StripHTML();
+            var startSearchId = htmlCode.IndexOf("g_data.nextcId");
+            var endSearchId = htmlCode.IndexOf(';', startSearchId);
 
-                var startSearchId = htmlCode.IndexOf("g_data.nextcId");
-                var endSearchId = htmlCode.IndexOf(';', startSearchId);
+            var s = htmlCode.Substring(startSearchId, endSearchId - startSearchId);
+            nextChapterId = long.Parse(s.Split('\'')[1]);
 
-                var s = htmlCode.Substring(startSearchId, endSearchId - startSearchId);
-                long nextChapterId = long.Parse(s.Split('\'')[1]);
-            }
+            var stream = description.GenerateStream();
+            CreateChapterFromStream(stream);
         }
 
         private static void AddDarkBackgroundColor(string filename)
@@ -67,16 +68,16 @@ namespace ChapterDivider
             doc.Save(_SavePath + filename);
         }
 
-        private static void CreatePdfFromExistingTxtFile()
+        private static void CreateChapterFromStream(Stream fileStream)
         {
-            var fileStream = new FileStream(_FilePath, FileMode.Open, FileAccess.Read);
             using (var streamReader = new StreamReader(fileStream, Encoding.UTF8))
             {
                 string line;
                 Chapter chap = null;
                 while ((line = streamReader.ReadLine()) != null)
                 {
-                    if (line.StartsWith("Translator: ") && chap != null) { }
+                    line = line.Trim();
+                    if ((line.StartsWith("Translator: ") || line.StartsWith("Editor: ")) && chap != null) { }
                     else if (line.StartsWith("Chapter ") && chap == null)
                     {
                         chap = new Chapter(line);
@@ -86,10 +87,13 @@ namespace ChapterDivider
                         Chapters.Add(chap);
                         chap = null;
                     }
-                    else if (chap != null) { chap.Lines.Add(line); }
+                    else if (chap != null && !string.IsNullOrWhiteSpace(line)) { chap.Lines.Add(line); }
                 }
             }
+        }
 
+        private static void CreatePdfUsingChapters()
+        {
             Console.WriteLine("Chapter count : " + Chapters.Count);
 
             if (parameters.ShouldCreateMultiplePdf.HasValue && parameters.ShouldCreateMultiplePdf.Value == true)
@@ -108,6 +112,32 @@ namespace ChapterDivider
                 if (parameters.ShouldAddDarkBackground.HasValue && parameters.ShouldAddDarkBackground.Value == true)
                 {
                     AddDarkBackgroundColor(filename);
+                }
+            }
+        }
+
+        private static void GetChaptersFromExistingFile()
+        {
+            var fileStream = new FileStream(_FilePath, FileMode.Open, FileAccess.Read);
+            CreateChapterFromStream(fileStream);
+        }
+
+        private static void GetChaptersFromUrl()
+        {
+            long currentChapterId = 23413393423649569, nextChapterId = 0;
+
+            // 23413400386206370
+            // == -1 if end of chapters
+            if (parameters.ShouldGetSingleChapter.HasValue && parameters.ShouldGetSingleChapter.Value)
+            {
+                AddChapterFromUrl(currentChapterId, out nextChapterId);
+            }
+            else
+            {
+                while (nextChapterId >= 0)
+                {
+                    AddChapterFromUrl(currentChapterId, out nextChapterId);
+                    currentChapterId = nextChapterId;
                 }
             }
         }
