@@ -17,8 +17,8 @@ namespace ChapterDivider
     {
         private const string _baseUrl = @"https://www.webnovel.com/book/11297889706318205/";
         private const string _FilePath = @"D:\Downloads\temp\Tempest of the Stellar War.txt";
-        private const string _NovelName = "Fury Towards The Burning Heaven";
-        private const string _SavePath = @"D:\Downloads\temp\";
+        private const string _NovelName = "Tempest of the Stellar War";
+        private const string _SavePath = @"D:\Downloads\temp\Tempest of the Stellar War\";
 
         private static readonly DivideParameters parameters = new DivideParameters()
         {
@@ -33,8 +33,8 @@ namespace ChapterDivider
 
         public static void Main(string[] args)
         {
-            //GetChaptersFromExistingFile();
-            GetChaptersFromUrl();
+            GetChaptersFromExistingFile();
+            //GetChaptersFromUrl();
             CreatePdfUsingChapters();
         }
 
@@ -151,7 +151,7 @@ namespace ChapterDivider
             int maxChap = Chapters.Count;
             List<string> fileNames = new List<string>();
 
-            foreach (var c in Chapters.Where(x => x.Number < 100))
+            foreach (var c in Chapters)
             {
                 PdfDocumentRenderer pdfRenderer = new PdfDocumentRenderer(false);
                 Document document = new Document();
@@ -173,6 +173,12 @@ namespace ChapterDivider
                 pdfRenderer.RenderDocument();
 
                 string filename = $"{_NovelName} {c.Number}.pdf";
+
+                if (!Directory.Exists(_SavePath))
+                {
+                    Directory.CreateDirectory(_SavePath);
+                }
+
                 pdfRenderer.PdfDocument.Save(_SavePath + filename);
                 fileNames.Add(filename);
                 if (chapDone % 10 == 0)
@@ -221,6 +227,12 @@ namespace ChapterDivider
             pdfRenderer.Document = document;
             pdfRenderer.RenderDocument();
             string filename = $"{_NovelName}.pdf";
+
+            if (!Directory.Exists(_SavePath))
+            {
+                Directory.CreateDirectory(_SavePath);
+            }
+
             pdfRenderer.PdfDocument.Save(_SavePath + filename);
             return filename;
         }
