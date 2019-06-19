@@ -15,18 +15,20 @@ namespace ChapterDivider
 {
     internal class Program
     {
+        private const string _baseUrl = @"https://www.webnovel.com/book/11297889706318205/";
         private const string _FilePath = @"D:\Downloads\temp\Tempest of the Stellar War.txt";
-        private const string _NovelName = "Tempest of the Stellar War";
+        private const string _NovelName = "Fury Towards The Burning Heaven";
         private const string _SavePath = @"D:\Downloads\temp\";
 
         private static readonly DivideParameters parameters = new DivideParameters()
         {
             ShouldAddDarkBackground = true,
             ShouldCreateMultiplePdf = true,
-            ShouldGetSingleChapter = true,
+            ShouldGetSingleChapter = false,
         };
 
         private static List<Chapter> _Chapters;
+        private static long _currentChapterId = 30997799382337779;
         private static List<Chapter> Chapters { get { return _Chapters ?? (_Chapters = new List<Chapter>()); } }
 
         public static void Main(string[] args)
@@ -39,7 +41,7 @@ namespace ChapterDivider
         private static void AddChapterFromUrl(long currentChapterId, out long nextChapterId)
         {
             HtmlWeb web = new HtmlWeb();
-            var htmlDoc = web.Load("https://www.webnovel.com/book/7922313105002205/" + currentChapterId);
+            var htmlDoc = web.Load(_baseUrl + currentChapterId);
             var htmlCode = htmlDoc.ParsedText;
 
             string description = htmlDoc.DocumentNode.SelectSingleNode(".//*[contains(@class,'chapter_content')]").InnerText;
@@ -124,20 +126,21 @@ namespace ChapterDivider
 
         private static void GetChaptersFromUrl()
         {
-            long currentChapterId = 23413393423649569, nextChapterId = 0;
+            long nextChapterId = 0;
 
             // 23413400386206370
             // == -1 if end of chapters
             if (parameters.ShouldGetSingleChapter.HasValue && parameters.ShouldGetSingleChapter.Value)
             {
-                AddChapterFromUrl(currentChapterId, out nextChapterId);
+                AddChapterFromUrl(_currentChapterId, out nextChapterId);
             }
             else
             {
                 while (nextChapterId >= 0)
                 {
-                    AddChapterFromUrl(currentChapterId, out nextChapterId);
-                    currentChapterId = nextChapterId;
+                    AddChapterFromUrl(_currentChapterId, out nextChapterId);
+                    _currentChapterId = nextChapterId;
+                    Console.WriteLine($"Add chapter {_currentChapterId}, working on chapter {nextChapterId}");
                 }
             }
         }
